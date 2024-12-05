@@ -1,0 +1,9 @@
+dependencies:
+- name: tgi
+  repository: file://../tgi
+  version: 0-latest
+- name: vllm
+  repository: file://../vllm
+  version: 0-latest
+digest: sha256:f45ea28fdbd59edcc48b01ca0600826b71c509dbcf48cc548fedce63b4a7e6c0
+generated: "2024-12-04T15:01:30.629137633Z"
