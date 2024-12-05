@@ -17,7 +17,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CHARTS_DIR: "helm-charts"
+  REGISTRY: "helm-charts"
 
 jobs:
   job1:
@@ -37,35 +37,21 @@ jobs:
         run: |
           base_commit=${{ github.event.pull_request.base.sha }}
           merged_commit=$(git log -1 --format='%H')
-          e2e_charts=$(git diff --name-only ${base_commit} ${merged_commit} | \
-          grep "^$CHARTS_DIR/" | \
-          grep -vE 'README.md|CI.md|common|*.sh' | \
-          cut -d'/' -f2 | sort -u )
-          common_charts=$(git diff --name-only ${base_commit} ${merged_commit} | \
-          grep "^$CHARTS_DIR/common" | \
-          grep -vE 'README.md|*.sh' | \
-          cut -d'/' -f3 | sort -u )
+          charts_changed=$(git diff --name-only ${base_commit} ${merged_commit} | \
+            grep helm-chart | sed 's/helm-chart.*$/helm-chart\/Chart.yaml/' |sort -u)
+          compose_changed=$(git diff --name-only ${base_commit} ${merged_commit} | \
+            grep docker_compose | sed 's/docker_compose.*$/kubernetes\/helm-chart\/Chart.yaml/' |sort -u)
+          e2e_charts=$(echo $charts_changed $compose_changed |tr ' ' '\n'|sort -u)
           run_matrix="{\"include\":["
           for chart in ${e2e_charts}; do
-            for file in "$CHARTS_DIR/$chart"/ci-*values.yaml; do
+            chart_dir=$(dirname $chart)
+            for file in "$chart_dir"/*values.yaml; do
               if [ -f "$file" ]; then
                 filename=$(basename "$file" .yaml)
                 if [[ "$filename" == *"gaudi"* ]]; then
                   run_matrix="${run_matrix}{\"example\":\"${chart}\",\"hardware\":\"gaudi\", \"valuefile\":\"${filename}\"},"
                 else
                   run_matrix="${run_matrix}{\"example\":\"${chart}\",\"hardware\":\"xeon\", \"valuefile\":\"${filename}\"},"
-                fi
-              fi
-            done
-          done
-          for chart in ${common_charts}; do
-            for file in "$CHARTS_DIR/common/$chart"/ci-*values.yaml; do
-              if [ -f "$file" ]; then
-                filename=$(basename "$file" .yaml)
-                if [[ "$filename" == *"gaudi"* ]]; then
-                  run_matrix="${run_matrix}{\"example\":\"${chart}\",\"hardware\":\"gaudi\", \"valuefile\":\"${filename}\",\"directory\":\"common\"},"
-                else
-                  run_matrix="${run_matrix}{\"example\":\"${chart}\",\"hardware\":\"xeon\", \"valuefile\":\"${filename}\",\"directory\":\"common\"},"
                 fi
               fi
             done
